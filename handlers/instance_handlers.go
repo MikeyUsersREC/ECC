@@ -5,6 +5,7 @@ import (
 	"main/database"
 	"main/services"
 	"main/types"
+	"os"
 
 	"github.com/gofiber/fiber/v2"
 	"go.mongodb.org/mongo-driver/v2/bson"
@@ -12,14 +13,21 @@ import (
 )
 
 type InstanceHandler struct {
-	collection      *mongo.Collection
-	instanceService *services.InstanceService
+	collection       *mongo.Collection
+	instanceService  *services.InstanceService
+	easyPanelService *services.EasypanelService
 }
 
-func NewInstanceHandler(collection *mongo.Collection) *InstanceHandler {
+func NewInstanceHandler(collection *mongo.Collection, baseProject services.Project) *InstanceHandler {
 	return &InstanceHandler{
 		collection:      collection,
 		instanceService: services.NewInstanceService(collection),
+		easyPanelService: services.NewEasypanelService(
+			os.Getenv("EASYPANEL_API_URL"),
+			os.Getenv("EASYPANEL_PROJECT_NAME"),
+			os.Getenv("EASYPANEL_AUTH_KEY"),
+			baseProject,
+		),
 	}
 }
 
@@ -45,6 +53,12 @@ func (h *InstanceHandler) RegisterInstance() fiber.Handler {
 		}
 
 		database.CreateInstanceInfo(*h.collection, newInstance)
+
+		h.easyPanelService.CreateApp(
+			newInstance.InstanceName,
+			newInstance.InstanceId,
+			privateKey,
+		)
 
 		return c.JSON(fiber.Map{
 			"instance":   newInstance,

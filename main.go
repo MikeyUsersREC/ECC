@@ -1,6 +1,11 @@
 package main
 
 import (
+	"errors"
+	"github.com/bytedance/sonic"
+	"io/ioutil"
+	"main/services"
+	"net/http"
 	"os"
 
 	"github.com/caarlos0/env/v11"
@@ -39,7 +44,45 @@ func main() {
 
 	collection := client.Database(environment.DatabaseName).Collection("Instances")
 
-	handlers := handlers.NewHandlers(collection)
+	if _, err := os.Stat(os.Getenv("EXAMPLE_PROJECT_FILE_NAME")); errors.Is(err, os.ErrNotExist) {
+		client := http.Client{}
+		request, err := http.NewRequest("GET", os.Getenv("EXAMPLE_PROJECT_DOWNLOAD"), nil)
+		request.Header.Add("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/133.0.0.0 Safari/537.36") // to satisfy websites which check..
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		resp, err := client.Do(request)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		defer resp.Body.Close()
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		var data map[string]interface{}
+		if err := sonic.Unmarshal(body, &data); err != nil {
+			log.Fatal(err)
+		}
+
+		err = os.WriteFile(os.Getenv("EXAMPLE_PROJECT_FILE_NAME"), body, 0644)
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
+	project_data, _ := ioutil.ReadFile(os.Getenv("EXAMPLE_PROJECT_FILE_NAME"))
+	var baseProject services.Project
+	err = sonic.Unmarshal(project_data, &baseProject)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	handlers := handlers.NewHandlers(collection, baseProject)
 
 	app := fiber.New()
 
