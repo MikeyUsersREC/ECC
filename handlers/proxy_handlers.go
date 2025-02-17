@@ -2,9 +2,11 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"main/api"
 	"main/database"
 	"main/types"
+	"strconv"
 	"strings"
 
 	"github.com/gofiber/fiber/v2"
@@ -70,9 +72,13 @@ func (h *ProxyHandler) handleMutualGuildsRequest(c *fiber.Ctx, path string) erro
 	return c.JSON(fiber.Map{"guilds": guilds})
 }
 
+func shardCalculator(guildID int64, totalShardCount int) int {
+	return (int(guildID) >> 22) % totalShardCount
+}
+
 func (h *ProxyHandler) handleProxyRequest(c *fiber.Ctx, path string) error {
 	var reqBody struct {
-		Guild string `json:"guild"`
+		Guild interface{} `json:"guild"`
 	}
 
 	if err := c.BodyParser(&reqBody); err != nil {
@@ -84,23 +90,43 @@ func (h *ProxyHandler) handleProxyRequest(c *fiber.Ctx, path string) error {
 		})
 	}
 
-	if reqBody.Guild == "" {
+	var guildStr string
+	switch v := reqBody.Guild.(type) {
+	case float64:
+		guildStr = fmt.Sprintf("%.0f", v)
+	case string:
+		guildStr = v
+	default:
 		return c.Status(400).JSON(fiber.Map{
 			"error": fiber.Map{
 				"code":    400,
-				"message": "Guild ID is required",
+				"message": "Invalid guild ID format",
 			},
 		})
 	}
 
-	instance, err := database.FetchInstanceByGuild(*h.collection, reqBody.Guild)
+	instance, err := database.FetchInstanceByGuild(*h.collection, guildStr)
 	if err != nil || instance == nil {
-		return c.Status(404).JSON(fiber.Map{
-			"error": fiber.Map{
-				"code":    404,
-				"message": "Instance not found",
-			},
-		})
+		guildID, err := strconv.ParseInt(guildStr, 10, 64)
+		if err != nil {
+			return c.Status(400).JSON(fiber.Map{
+				"error": fiber.Map{
+					"code":    400,
+					"message": "Invalid guild ID",
+				},
+			})
+		}
+
+		shard := shardCalculator(guildID, 22)
+		instance, err = database.FetchInstanceByShard(*h.collection, shard)
+		if err != nil || instance == nil {
+			return c.Status(404).JSON(fiber.Map{
+				"error": fiber.Map{
+					"code":    404,
+					"message": "No instance found for guild or shard",
+				},
+			})
+		}
 	}
 
 	return h.proxyService.ForwardRequest(c, instance, path)
