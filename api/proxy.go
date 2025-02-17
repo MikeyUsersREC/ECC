@@ -97,14 +97,23 @@ func (p *ProxyService) sendRequestToTargets(c *fiber.Ctx, targets []string) ([]i
 	for _, target := range targets {
 		body, err := p.sendRequest(c, target)
 		if err != nil {
-			return nil, err
+			log.Error("Failed to send request", "target", target, "error", err)
+			continue
 		}
 
 		newData, err := utils.UnmarshalHandler(body)
 		if err != nil {
-			log.Fatal(err)
+			log.Error("Failed to unmarshal response", "target", target, "error", err)
+			continue
 		}
-		bodies = append(bodies, newData)
+
+		if newData != nil {
+			bodies = append(bodies, newData)
+		}
+	}
+
+	if len(bodies) == 0 {
+		return nil, fmt.Errorf("no valid responses received from any target")
 	}
 
 	return bodies, nil

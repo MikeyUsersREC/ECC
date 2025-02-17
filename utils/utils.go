@@ -1,28 +1,29 @@
 package utils
 
 import (
-	"fmt"
-
+	"encoding/json"
 	"main/types"
-
-	"github.com/bytedance/sonic"
 )
 
 func UnmarshalHandler(data []byte) (interface{}, error) {
-	var getMutualGuilds types.GetMutualGuilds
-	err := sonic.Unmarshal(data, &getMutualGuilds)
+	var errorResp map[string]interface{}
+	if err := json.Unmarshal(data, &errorResp); err == nil {
+		if _, hasDetail := errorResp["detail"]; hasDetail {
+			return nil, nil
+		}
+	}
 
-	if err == nil && len(getMutualGuilds.Guilds) > 0 {
+	var getMutualGuilds types.GetMutualGuilds
+	if err := json.Unmarshal(data, &getMutualGuilds); err == nil && len(getMutualGuilds.Guilds) > 0 {
 		return getMutualGuilds, nil
 	}
 
 	var mutualGuilds []types.MutualGuild
-	err = sonic.Unmarshal(data, &mutualGuilds)
-	if err != nil {
-		return nil, fmt.Errorf("failed to unmarshal data into supported types: %v", err)
+	if err := json.Unmarshal(data, &mutualGuilds); err == nil {
+		return mutualGuilds, nil
 	}
 
-	return mutualGuilds, nil
+	return nil, nil
 }
 
 func ShardCalculator(guild_id int64, total_shard_count int) int {
