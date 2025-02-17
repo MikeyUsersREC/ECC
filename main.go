@@ -34,6 +34,11 @@ func loadEnvironment() *types.EccConfig {
 func main() {
 	log.Info("Starting database connection ...")
 
+	err := os.Mkdir("keys", 0644)
+	if err != nil {
+		return
+	}
+
 	environment := loadEnvironment()
 	log.Info("Loaded environment ...")
 
