@@ -100,11 +100,13 @@ func (service *EasypanelService) CreateApp(serviceName string, instanceId string
 		if strings.HasPrefix(line, os.Getenv("ECC_TOKEN_ENV_VAR")) {
 			newLineParts[1] = instanceId
 		} else if strings.HasPrefix(line, os.Getenv("RSA_CERT_ENV_VAR")) {
-			newLineParts[1] = privateKeyString
+			newLineParts[1] = strings.Replace(privateKeyString, "\n", "\r", -1)
 		}
 		newEnvLines = append(newEnvLines, strings.Join(newLineParts, "="))
 	}
 	newEnv := strings.Join(newEnvLines, "\n")
+	newEnv = strings.Replace(newEnv, "\r", "\\n", -1)
+
 	newProject.Data.Env = newEnv
 	client := http.Client{}
 
