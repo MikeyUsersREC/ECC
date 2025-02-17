@@ -32,7 +32,7 @@ func (h *ProxyHandler) APIProxy() fiber.Handler {
 			return h.handleMutualGuildsRequest(c, path)
 		}
 
-		return h.handleGuildRequest(c, path)
+		return h.handleProxyRequest(c, path)
 	}
 }
 
@@ -40,38 +40,67 @@ func (h *ProxyHandler) handleMutualGuildsRequest(c *fiber.Ctx, path string) erro
 	var instances []types.InstanceInfo
 	cursor, err := h.collection.Find(context.TODO(), bson.M{})
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(500).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    500,
+				"message": "Internal Server Error",
+			},
+		})
 	}
 
 	if err = cursor.All(context.TODO(), &instances); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(500).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    500,
+				"message": "Internal Server Error",
+			},
+		})
 	}
 
 	guilds, err := h.proxyService.GatherResponses(c, instances, path)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		return c.Status(500).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    500,
+				"message": err.Error(),
+			},
+		})
 	}
 
 	return c.JSON(fiber.Map{"guilds": guilds})
 }
 
-func (h *ProxyHandler) handleGuildRequest(c *fiber.Ctx, path string) error {
-	var guildObj types.GuildFetch
-	if err := c.BodyParser(&guildObj); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+func (h *ProxyHandler) handleProxyRequest(c *fiber.Ctx, path string) error {
+	var reqBody struct {
+		Guild string `json:"guild"`
 	}
 
-	if guildObj.Guild == "" {
-		return c.Status(400).JSON(fiber.Map{"error": "Guild ID is required"})
+	if err := c.BodyParser(&reqBody); err != nil {
+		return c.Status(422).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    422,
+				"message": "Unprocessable Entity",
+			},
+		})
 	}
 
-	instance, err := database.FetchInstanceByGuild(*h.collection, guildObj.Guild)
-	if err != nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Instance not found"})
+	if reqBody.Guild == "" {
+		return c.Status(400).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    400,
+				"message": "Guild ID is required",
+			},
+		})
 	}
 
-	if instance == nil {
-		return c.Status(404).JSON(fiber.Map{"error": "Instance not found"})
+	instance, err := database.FetchInstanceByGuild(*h.collection, reqBody.Guild)
+	if err != nil || instance == nil {
+		return c.Status(404).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    404,
+				"message": "Instance not found",
+			},
+		})
 	}
 
 	return h.proxyService.ForwardRequest(c, instance, path)

@@ -26,19 +26,19 @@ func NewProxyService() *ProxyService {
 
 func (p *ProxyService) ForwardRequest(c *fiber.Ctx, instance *types.InstanceInfo, path string) error {
 	if instance == nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(422).JSON(fiber.Map{
 			"error": fiber.Map{
-				"code":    fiber.StatusBadRequest,
-				"message": "Invalid instance information",
+				"code":    422,
+				"message": "Unprocessable Entity",
 			},
 		})
 	}
 
 	if path == "" {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+		return c.Status(422).JSON(fiber.Map{
 			"error": fiber.Map{
-				"code":    fiber.StatusBadRequest,
-				"message": "Invalid path",
+				"code":    422,
+				"message": "Unprocessable Entity",
 			},
 		})
 	}
