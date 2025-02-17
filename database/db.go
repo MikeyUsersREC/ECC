@@ -103,5 +103,12 @@ func FetchInstanceByGuild(collection mongo.Collection, guildID string) (*types.I
 }
 
 func FetchInstanceByShard(collection mongo.Collection, shardID int) (*types.InstanceInfo, error) {
-	return GetInstanceInfo(collection, bson.M{"shard_ids": shardID})
+	return GetInstanceInfo(collection, bson.M{
+		"shard_ids": bson.M{
+			"$exists": true,
+			"$ne":     nil,
+			"$in":     []int{shardID},
+		},
+		"instance_type": "PRODUCTION",
+	})
 }
