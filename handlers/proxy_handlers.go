@@ -58,12 +58,20 @@ func (h *ProxyHandler) handleMutualGuildsRequest(c *fiber.Ctx, path string) erro
 func (h *ProxyHandler) handleGuildRequest(c *fiber.Ctx, path string) error {
 	var guildObj types.GuildFetch
 	if err := c.BodyParser(&guildObj); err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err})
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if guildObj.Guild == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "Guild ID is required"})
 	}
 
 	instance, err := database.FetchInstanceByGuild(*h.collection, guildObj.Guild)
 	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": err})
+		return c.Status(404).JSON(fiber.Map{"error": "Instance not found"})
+	}
+
+	if instance == nil {
+		return c.Status(404).JSON(fiber.Map{"error": "Instance not found"})
 	}
 
 	return h.proxyService.ForwardRequest(c, instance, path)

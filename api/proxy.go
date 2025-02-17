@@ -25,6 +25,24 @@ func NewProxyService() *ProxyService {
 }
 
 func (p *ProxyService) ForwardRequest(c *fiber.Ctx, instance *types.InstanceInfo, path string) error {
+	if instance == nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    fiber.StatusBadRequest,
+				"message": "Invalid instance information",
+			},
+		})
+	}
+
+	if path == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    fiber.StatusBadRequest,
+				"message": "Invalid path",
+			},
+		})
+	}
+
 	targetURL := fmt.Sprintf("%s://%s%s",
 		strings.ToLower(instance.Protocol),
 		instance.Hostname,
