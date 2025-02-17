@@ -32,15 +32,26 @@ func (p *ProxyService) ForwardRequest(c *fiber.Ctx, instance *types.InstanceInfo
 
 	resp, err := p.makeRequest(c, targetURL)
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusBadGateway).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    fiber.StatusBadGateway,
+				"message": err.Error(),
+			},
+		})
 	}
 	defer resp.Body.Close()
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
+			"error": fiber.Map{
+				"code":    fiber.StatusInternalServerError,
+				"message": "Failed to read response body",
+			},
+		})
 	}
 
+	c.Status(resp.StatusCode)
 	c.Set("Content-Type", resp.Header.Get("Content-Type"))
 	return c.Send(body)
 }
